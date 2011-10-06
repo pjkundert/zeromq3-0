@@ -38,31 +38,38 @@ zmq::sub_t::~sub_t ()
 int zmq::sub_t::xsetsockopt (int option_, const void *optval_,
     size_t optvallen_)
 {
-    if (option_ != ZMQ_SUBSCRIBE && option_ != ZMQ_UNSUBSCRIBE) {
-        errno = EINVAL;
-        return -1;
+    int rc;
+    switch (option_) {
+    case ZMQ_SUBSCRIBE:
+    case ZMQ_UNSUBSCRIBE:
+        //  Create the subscription message.
+        {
+            msg_t msg;
+            rc = msg.init_size (optvallen_ + 1);
+            errno_assert (rc == 0);
+            unsigned char *data = (unsigned char*) msg.data ();
+            if (option_ == ZMQ_SUBSCRIBE)
+                *data = 1;
+            else if (option_ == ZMQ_UNSUBSCRIBE)
+                *data = 0;
+            memcpy (data + 1, optval_, optvallen_);
+
+            //  Pass it further on in the stack.
+            int err = 0;
+            rc = xsub_t::xsend (&msg, 0);
+            if (rc != 0)
+                err = errno;
+            int rc2 = msg.close ();
+            errno_assert (rc2 == 0);
+            if (rc != 0)
+                errno = err;
+        }
+        break;
+    default:
+        // Not one of our custom options; pass along to base.
+        rc = zmq::xsub_t::xsetsockopt (option_, optval_, optvallen_);
+        break;
     }
-
-    //  Create the subscription message.
-    msg_t msg;
-    int rc = msg.init_size (optvallen_ + 1);
-    errno_assert (rc == 0);
-    unsigned char *data = (unsigned char*) msg.data ();
-    if (option_ == ZMQ_SUBSCRIBE)
-        *data = 1;
-    else if (option_ == ZMQ_UNSUBSCRIBE)
-        *data = 0;
-    memcpy (data + 1, optval_, optvallen_);
-
-    //  Pass it further on in the stack.
-    int err = 0;
-    rc = xsub_t::xsend (&msg, 0);
-    if (rc != 0)
-        err = errno;
-    int rc2 = msg.close ();
-    errno_assert (rc2 == 0);
-    if (rc != 0)
-        errno = err;
     return rc;
 }
 

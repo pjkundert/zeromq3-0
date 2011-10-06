@@ -87,8 +87,12 @@ namespace zmq
         void unregister_endpoints (class socket_base_t *socket_);
         endpoint_t find_endpoint (const char *addr_);
 
-        //  Logging.
+        //  Logging, with formatting.  Resultant logged messages are
+        //  NUL-terminated C style strings.  Can detect if logging the string
+        //  would result in output activity (assumes that the start of the
+        //  format is fixed, and is used for matching).
         void log (const char *format_, va_list args_);
+        bool log_subs (const char *format_);
 
         enum {
             term_tid = 0,
@@ -143,9 +147,10 @@ namespace zmq
         mutex_t endpoints_sync;
 
         //  PUB socket for logging. The socket is shared among all the threads,
-        //  thus it is synchronised by a mutex.
+        //  thus it is synchronised by a mutex.  Log raw binary (sized) data.
         class socket_base_t *log_socket;
         mutex_t log_sync;
+        void log (const void *data_, size_t size_);
 
         ctx_t (const ctx_t&);
         const ctx_t &operator = (const ctx_t&);

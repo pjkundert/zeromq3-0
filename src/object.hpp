@@ -41,6 +41,10 @@ namespace zmq
         ctx_t *get_ctx ();
         void process_command (struct command_t &cmd_);
 
+        //  Logs a message with formatting, and tests if message has subscribers
+        void log (const char *format_, ...);
+        bool log_subs (const char *format_);
+
     protected:
 
         //  Using following function, socket is able to access global
@@ -49,9 +53,6 @@ namespace zmq
         void unregister_endpoints (class socket_base_t *socket_);
         struct endpoint_t find_endpoint (const char *addr_);
         void destroy_socket (class socket_base_t *socket_);
-
-        //  Logs an message.
-        void log (const char *format_, ...);
 
         //  Chooses least loaded I/O thread.
         class io_thread_t *choose_io_thread (uint64_t affinity_);

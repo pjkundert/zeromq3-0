@@ -1,0 +1,65 @@
+zmq_log_subs(3)
+===============
+
+
+NAME
+----
+zmq_log_subs - detect if the 'sys://log' socket has listeners ready
+
+
+SYNOPSIS
+--------
+*int zmq_log_subs (void '*context', const char '*format');*
+
+
+DESCRIPTION
+-----------
+The _zmq_log_subs()_ function shall determine if any subscribers are
+willing and able to receive a message with the provided format.
+If no sockets have subscribed using a
+corresponding message filter, then zero is returned.
+
+If the message would be dropped due to no sockets
+being able to accept the message, a zero is also returened.
+
+A 1 is returned if both the format matches some subscriber message
+filter, and sockets are ready to receive a message.
+
+
+RETURN VALUE
+------------
+The _zmq_log_subs()_ function shall return zero or 1 if
+successful. Otherwise it shall return `-1` and set 'errno' to one of
+the values defined below.
+
+
+ERRORS
+------
+*EINVAL*::
+The endpoint supplied is invalid.
+*EPROTONOSUPPORT*::
+The requested 'transport' protocol is not supported.
+*ENOCOMPATPROTO*::
+The requested 'transport' protocol is not compatible with the socket type.
+*EADDRINUSE*::
+The requested 'address' is already in use.
+*EADDRNOTAVAIL*::
+The requested 'address' was not local.
+*ENODEV*::
+The requested 'address' specifies a nonexistent interface.
+*ETERM*::
+The 0MQ 'context' associated with the specified 'socket' was terminated.
+*ENOTSOCK*::
+The provided 'socket' was invalid.
+*EMTHREAD*::
+No I/O thread is available to accomplish the task.
+
+
+SEE ALSO
+--------
+linkzmq:zmq_log[3]
+
+
+AUTHORS
+-------
+This man page was written by Perry Kundert <perry@kundert.ca>.

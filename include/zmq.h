@@ -199,10 +199,17 @@ ZMQ_EXPORT int zmq_getsockopt (void *s, int option, void *optval,
     size_t *optvallen);
 ZMQ_EXPORT int zmq_bind (void *s, const char *addr);
 ZMQ_EXPORT int zmq_connect (void *s, const char *addr);
+ZMQ_EXPORT int zmq_subs (void *s, const void *buf, size_t len);
 ZMQ_EXPORT int zmq_send (void *s, const void *buf, size_t len, int flags);
 ZMQ_EXPORT int zmq_recv (void *s, void *buf, size_t len, int flags);
 ZMQ_EXPORT int zmq_sendmsg (void *s, zmq_msg_t *msg, int flags);
 ZMQ_EXPORT int zmq_recvmsg (void *s, zmq_msg_t *msg, int flags);
+
+/******************************************************************************/
+/*  Logging, threadsafe.  Attach a ZMQ_SUB to sys://log to receive.           */
+/******************************************************************************/
+ZMQ_EXPORT int zmq_log_subs (void *context, const char *fmt);
+ZMQ_EXPORT int zmq_log (void *context, const char *fmt, ...);
 
 /******************************************************************************/
 /*  I/O multiplexing.                                                         */

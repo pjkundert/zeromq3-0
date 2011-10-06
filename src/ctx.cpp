@@ -302,13 +302,13 @@ zmq::endpoint_t zmq::ctx_t::find_endpoint (const char *addr_)
      return *endpoint;
 }
 
-void zmq::ctx_t::log (const char *format_, va_list args_)
+void zmq::ctx_t::log (const void *data_, size_t size_)
 {
-    //  Create the log message.
+    // Handle raw (sized) binary data.
     msg_t msg;
-    int rc = msg.init_size (strlen (format_) + 1);
+    int rc = msg.init_size (size_);
     errno_assert (rc == 0);
-    memcpy (msg.data (), format_, msg.size ());
+    memcpy (msg.data (), data_, msg.size ());
 
     //  At this  point we migrate the log socket to the current thread.
     //  We rely on mutex for executing the memory barrier.
@@ -321,4 +321,35 @@ void zmq::ctx_t::log (const char *format_, va_list args_)
     errno_assert (rc == 0);
 }
 
+void zmq::ctx_t::log (const char *format_, va_list args_)
+{
+    // Create the log message, assuming a vsnprintf-style format, and 
+    // an arbitrary 1024-byte log message limit.
+    char buf[1024];
+    int siz = vsnprintf(buf, sizeof buf, format_, args_);
+    if (siz < 0) {
+        // Formatting error; copy format, guaranteeing NUL termination.
+        strncpy(buf, format_, sizeof buf);
+        buf[(sizeof buf) - 1] = 0;
+        siz = strlen(buf);
+    } else if (siz > (int)(sizeof buf)) {
+        // Didn't fit within size of target buffer, including NUL; add ...
+        buf[(sizeof buf) - 4] = '.';
+        buf[(sizeof buf) - 3] = '.';
+        buf[(sizeof buf) - 2] = '.';
+        buf[(sizeof buf) - 1] = 0;
+        siz = sizeof buf;
+    }
+    this->log ((void*)buf, (size_t)siz);
+}
 
+bool zmq::ctx_t::log_subs (const char *format_)
+{
+    bool subs = false;
+    //  We migrate the log socket to the current thread (see log, above)
+    log_sync.lock ();
+    if (log_socket)
+        subs = log_socket->has_subs ((const void *)format_, strlen(format_));
+    log_sync.unlock ();
+    return subs;
+}

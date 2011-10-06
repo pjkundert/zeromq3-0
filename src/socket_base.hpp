@@ -73,10 +73,13 @@ namespace zmq
         int recv (class msg_t *msg_, int flags_);
         int close ();
 
-        //  These functions are used by the polling mechanism to determine
-        //  which events are to be reported from this socket.
+        //  These functions are used by the polling mechanism to determine which
+        //  events are to be reported from this socket.  For some sockets that
+        //  selectively send messages based on their data (eg. *pub_t), message
+        //  data can be tested to see if any subscribers exist.
         bool has_in ();
         bool has_out ();
+        bool has_subs (const void *data_, size_t size);
 
         //  Registry of named sessions.
         bool register_session (const blob_t &name_, class session_t *session_);
@@ -110,8 +113,10 @@ namespace zmq
             const blob_t &peer_identity_) = 0;
 
         //  The default implementation assumes there are no specific socket
-        //  options for the particular socket type. If not so, overload this
-        //  method.
+        //  options for the particular socket type. If not so, overload these
+        //  methods (invoking the base-class' version if option not recognized.)
+        virtual int xgetsockopt (int option_, void *optval_,
+            size_t *optvallen_);
         virtual int xsetsockopt (int option_, const void *optval_,
             size_t optvallen_);
 
@@ -122,6 +127,9 @@ namespace zmq
         //  The default implementation assumes that recv in not supported.
         virtual bool xhas_in ();
         virtual int xrecv (class msg_t *msg_, int flags_);
+
+        //  The default just tests xhas_out ()
+        virtual bool xhas_subs (const void *data_, size_t size);
 
         //  i_pipe_events will be forwarded to these functions.
         virtual void xread_activated (pipe_t *pipe_);

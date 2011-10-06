@@ -40,48 +40,51 @@ namespace zmq
 
         //  Add key to the trie. Returns true if it's a new subscription
         //  rather than a duplicate.
-        bool add (unsigned char *prefix_, size_t size_, class pipe_t *pipe_);
+        bool add (const unsigned char *prefix_, size_t size_,
+            class pipe_t *pipe_);
 
         //  Remove all subscriptions for a specific peer from the trie.
         //  If there are no subscriptions left on some topics, invoke the
         //  supplied callback function.
         void rm (class pipe_t *pipe_,
-            void (*func_) (unsigned char *data_, size_t size_, void *arg_),
+            void (*func_) (const unsigned char *data_, size_t size_, void *arg_),
             void *arg_);
 
         //  Remove specific subscription from the trie. Return true is it was
         //  actually removed rather than de-duplicated.
-        bool rm (unsigned char *prefix_, size_t size_, class pipe_t *pipe_);
+        bool rm (const unsigned char *prefix_, size_t size_, class pipe_t *pipe_);
 
-        //  Signal all the matching pipes.
-        void match (unsigned char *data_, size_t size_,
-            void (*func_) (class pipe_t *pipe_, void *arg_), void *arg_);
+        //  Signal all the matching pipes using the supplied func_ (if any),
+        //  process and return the total number of pipes matched (up to the
+        //  optional max_).
+        size_t match (const unsigned char *data_, size_t size_,
+            void (*func_) (class pipe_t *pipe_, void *arg_), void *arg_,
+            size_t max_=0);
 
     private:
 
-        bool add_helper (unsigned char *prefix_, size_t size_,
+        bool add_helper (const unsigned char *prefix_, size_t size_,
             class pipe_t *pipe_);
         void rm_helper (class pipe_t *pipe_, unsigned char **buff_,
             size_t buffsize_, size_t maxbuffsize_,
-            void (*func_) (unsigned char *data_, size_t size_, void *arg_),
+            void (*func_) (const unsigned char *data_, size_t size_, void *arg_),
             void *arg_);
-        bool rm_helper (unsigned char *prefix_, size_t size_,
+        bool rm_helper (const unsigned char *prefix_, size_t size_,
             class pipe_t *pipe_);
 
-        typedef std::set <class pipe_t*> pipes_t;
+        typedef std::set <class pipe_t *> pipes_t;
         pipes_t pipes;
 
         unsigned char min;
         unsigned short count;
         union {
-            class mtrie_t *node;
-            class mtrie_t **table;
+            mtrie_t *node;
+            mtrie_t **table;
         } next;
 
         mtrie_t (const mtrie_t&);
         const mtrie_t &operator = (const mtrie_t&);
     };
-
 }
 
 #endif

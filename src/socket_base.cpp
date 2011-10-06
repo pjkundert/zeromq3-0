@@ -254,14 +254,8 @@ int zmq::socket_base_t::setsockopt (int option_, const void *optval_,
         return -1;
     }
 
-    //  First, check whether specific socket type overloads the option.
-    int rc = xsetsockopt (option_, optval_, optvallen_);
-    if (rc == 0 || errno != EINVAL)
-        return rc;
-
-    //  If the socket type doesn't support the option, pass it to
-    //  the generic option parser.
-    return options.setsockopt (option_, optval_, optvallen_);
+    //  Invoke handler; specific socket type overloads the option.
+    return xsetsockopt (option_, optval_, optvallen_);
 }
 
 int zmq::socket_base_t::getsockopt (int option_, void *optval_,
@@ -272,55 +266,8 @@ int zmq::socket_base_t::getsockopt (int option_, void *optval_,
         return -1;
     }
 
-    if (option_ == ZMQ_RCVLABEL) {
-        if (*optvallen_ < sizeof (int)) {
-            errno = EINVAL;
-            return -1;
-        }
-        *((int*) optval_) = rcvlabel ? 1 : 0;
-        *optvallen_ = sizeof (int);
-        return 0;
-    }
-
-    if (option_ == ZMQ_RCVMORE) {
-        if (*optvallen_ < sizeof (int)) {
-            errno = EINVAL;
-            return -1;
-        }
-        *((int*) optval_) = rcvmore ? 1 : 0;
-        *optvallen_ = sizeof (int);
-        return 0;
-    }
-
-    if (option_ == ZMQ_FD) {
-        if (*optvallen_ < sizeof (fd_t)) {
-            errno = EINVAL;
-            return -1;
-        }
-        *((fd_t*) optval_) = mailbox.get_fd ();
-        *optvallen_ = sizeof (fd_t);
-        return 0;
-    }
-
-    if (option_ == ZMQ_EVENTS) {
-        if (*optvallen_ < sizeof (int)) {
-            errno = EINVAL;
-            return -1;
-        }
-        int rc = process_commands (0, false);
-        if (rc != 0 && (errno == EINTR || errno == ETERM))
-            return -1;
-        errno_assert (rc == 0);
-        *((int*) optval_) = 0;
-        if (has_out ())
-            *((int*) optval_) |= ZMQ_POLLOUT;
-        if (has_in ())
-            *((int*) optval_) |= ZMQ_POLLIN;
-        *optvallen_ = sizeof (int);
-        return 0;
-    }
-
-    return options.getsockopt (option_, optval_, optvallen_);
+    //  Invoke handler; specific socket type overloads the option.
+    return xgetsockopt (option_, optval_, optvallen_);
 }
 
 int zmq::socket_base_t::bind (const char *addr_)
@@ -679,6 +626,11 @@ bool zmq::socket_base_t::has_out ()
     return xhas_out ();
 }
 
+bool zmq::socket_base_t::has_subs (const void *data_, size_t size_)
+{
+    return xhas_subs (data_, size_);
+}
+
 bool zmq::socket_base_t::register_session (const blob_t &name_,
     session_t *session_)
 {
@@ -826,16 +778,84 @@ void zmq::socket_base_t::process_destroy ()
     destroyed = true;
 }
 
+int zmq::socket_base_t::xgetsockopt (int option_, void *optval_,
+    size_t *optvallen_)
+{
+    int rc;
+    switch (option_) {
+    case ZMQ_RCVLABEL:
+        if (*optvallen_ < sizeof (int)) {
+            errno = EINVAL;
+            rc = -1;
+            break;
+        }
+        *((int*) optval_) = rcvlabel ? 1 : 0;
+        *optvallen_ = sizeof (int);
+        rc = 0;
+        break;
+    case ZMQ_RCVMORE:
+        if (*optvallen_ < sizeof (int)) {
+            errno = EINVAL;
+            rc = -1;
+            break;
+        }
+        *((int*) optval_) = rcvmore ? 1 : 0;
+        *optvallen_ = sizeof (int);
+        rc = 0;
+        break;
+    case ZMQ_FD:
+        if (*optvallen_ < sizeof (fd_t)) {
+            errno = EINVAL;
+            rc = -1;
+            break;
+        }
+        *((fd_t*) optval_) = mailbox.get_fd ();
+        *optvallen_ = sizeof (fd_t);
+        rc = 0;
+        break;
+    case ZMQ_EVENTS:
+        if (*optvallen_ < sizeof (int)) {
+            errno = EINVAL;
+            rc = -1;
+            break;
+        }
+        rc = process_commands (0, false);
+        if (rc != 0 && (errno == EINTR || errno == ETERM))
+            break;
+        errno_assert (rc == 0);
+        *((int*) optval_) = 0;
+        if (has_out ())
+            *((int*) optval_) |= ZMQ_POLLOUT;
+        if (has_in ())
+            *((int*) optval_) |= ZMQ_POLLIN;
+        *optvallen_ = sizeof (int);
+        rc = 0;
+        break;
+    default:
+        //  If the socket type doesn't support the option, pass it along
+        //  to the generic option parser.
+        rc = options.getsockopt (option_, optval_, optvallen_);
+        break;
+    }
+    return rc;
+}
+
 int zmq::socket_base_t::xsetsockopt (int option_, const void *optval_,
     size_t optvallen_)
 {
-    errno = EINVAL;
-    return -1;
+    //  If the socket type doesn't support the option, pass it to
+    //  the generic option parser.
+    return options.setsockopt (option_, optval_, optvallen_);
 }
 
 bool zmq::socket_base_t::xhas_out ()
 {
     return false;
+}
+
+bool zmq::socket_base_t::xhas_subs (const void *, size_t)
+{
+    return (int)xhas_out ();
 }
 
 int zmq::socket_base_t::xsend (msg_t *msg_, int flags_)

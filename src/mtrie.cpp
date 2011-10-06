@@ -22,7 +22,7 @@
 
 #include <new>
 #include <algorithm>
-
+#include <string>
 #include "platform.hpp"
 #if defined ZMQ_HAVE_WINDOWS
 #include "windows.hpp"
@@ -50,12 +50,13 @@ zmq::mtrie_t::~mtrie_t ()
     }
 }
 
-bool zmq::mtrie_t::add (unsigned char *prefix_, size_t size_, pipe_t *pipe_)
+bool zmq::mtrie_t::add (const unsigned char *prefix_, size_t size_,
+    pipe_t *pipe_)
 {
     return add_helper (prefix_, size_, pipe_);
 }
 
-bool zmq::mtrie_t::add_helper (unsigned char *prefix_, size_t size_,
+bool zmq::mtrie_t::add_helper (const unsigned char *prefix_, size_t size_,
     pipe_t *pipe_)
 {
     //  We are at the node corresponding to the prefix. We are done.
@@ -80,10 +81,8 @@ bool zmq::mtrie_t::add_helper (unsigned char *prefix_, size_t size_,
             mtrie_t *oldp = next.node;
             count = (min < c ? c - min : min - c) + 1;
             next.table = (mtrie_t**)
-                malloc (sizeof (mtrie_t*) * count);
+                calloc (count, sizeof (mtrie_t*));
             zmq_assert (next.table);
-            for (unsigned short i = 0; i != count; ++i)
-                next.table [i] = 0;
             min = std::min (min, c);
             next.table [oldc - min] = oldp;
         }
@@ -102,7 +101,7 @@ bool zmq::mtrie_t::add_helper (unsigned char *prefix_, size_t size_,
 
             //  The new character is below the current character range.
             unsigned short old_count = count;
-            count = (min + old_count) - c;
+              count = (min + old_count) - c;
             next.table = (mtrie_t**) realloc ((void*) next.table,
                 sizeof (mtrie_t*) * count);
             zmq_assert (next.table);
@@ -133,7 +132,7 @@ bool zmq::mtrie_t::add_helper (unsigned char *prefix_, size_t size_,
 
 
 void zmq::mtrie_t::rm (pipe_t *pipe_,
-    void (*func_) (unsigned char *data_, size_t size_, void *arg_),
+    void (*func_) (const unsigned char *data_, size_t size_, void *arg_),
     void *arg_)
 {
     unsigned char *buff = NULL;
@@ -143,7 +142,7 @@ void zmq::mtrie_t::rm (pipe_t *pipe_,
 
 void zmq::mtrie_t::rm_helper (pipe_t *pipe_, unsigned char **buff_,
     size_t buffsize_, size_t maxbuffsize_,
-    void (*func_) (unsigned char *data_, size_t size_, void *arg_),
+    void (*func_) (const unsigned char *data_, size_t size_, void *arg_),
     void *arg_)
 {
     //  Remove the subscription from this node.
@@ -179,12 +178,12 @@ void zmq::mtrie_t::rm_helper (pipe_t *pipe_, unsigned char **buff_,
     }  
 }
 
-bool zmq::mtrie_t::rm (unsigned char *prefix_, size_t size_, pipe_t *pipe_)
+bool zmq::mtrie_t::rm (const unsigned char *prefix_, size_t size_, pipe_t *pipe_)
 {
     return rm_helper (prefix_, size_, pipe_);
 }
 
-bool zmq::mtrie_t::rm_helper (unsigned char *prefix_, size_t size_,
+bool zmq::mtrie_t::rm_helper (const unsigned char *prefix_, size_t size_,
     pipe_t *pipe_)
 {
     if (!size_) {
@@ -193,7 +192,7 @@ bool zmq::mtrie_t::rm_helper (unsigned char *prefix_, size_t size_,
         return pipes.empty ();
     }
 
-    unsigned char c = *prefix_;
+    const unsigned char c = *prefix_;
     if (!count || c < min || c >= min + count)
         return false;
 
@@ -206,38 +205,44 @@ bool zmq::mtrie_t::rm_helper (unsigned char *prefix_, size_t size_,
     return next_node->rm_helper (prefix_ + 1, size_ - 1, pipe_);
 }
 
-void zmq::mtrie_t::match (unsigned char *data_, size_t size_,
-    void (*func_) (pipe_t *pipe_, void *arg_), void *arg_)
+size_t zmq::mtrie_t::match (const unsigned char *data_, size_t size_,
+    void (*func_) (pipe_t *pipe_, void *arg_), void *arg_, size_t max_)
 {
+    //  Search down the mtrie_t, reporting all nodes that match at each level of
+    //  the search term.  The very first level (matching the empty term) matches
+    //  any search term.
+    size_t total = 0;
     mtrie_t *current = this;
     while (true) {
+        //  Signal the pipes attached to this node; empty data matches!  Process
+        //  and count nodes, stopping at max_.
+        for (pipes_t::iterator it = current->pipes.begin ();
+             it != current->pipes.end (); ++it) {
+            if (func_)
+                func_ (*it, arg_);
+            if (++total == max_) // if max_ == 0, no limit!
+                break;
+        }
 
-        //  Signal the pipes attached to this node.
-		for (pipes_t::iterator it = current->pipes.begin ();
-			it != current->pipes.end (); ++it)
-			func_ (*it, arg_);
-
-		// If we are at the end of the message, there's nothing more to match.
-		if(!size_)
-			break;
-
-        //  If there are no subnodes in the trie, return.
+        if (!size_)
+            break;
         if (current->count == 0)
             break;
 
         //  If there's one subnode (optimisation).
-		if (current->count == 1) {
+        if (current->count == 1) {
             if (data_ [0] != current->min)
                 break;
             current = current->next.node;
             data_++;
             size_--;
-		    continue;
-		}
+            continue;
+        }
 
-		//  If there are multiple subnodes.
+        //  If there are multiple subnodes, check that there is a matching
+        //  non-empty entry for this data entry; if so, advance and loop.
         if (data_ [0] < current->min || data_ [0] >=
-              current->min + current->count)
+            current->min + current->count)
             break;
         if (!current->next.table [data_ [0] - current->min])
             break;
@@ -245,5 +250,6 @@ void zmq::mtrie_t::match (unsigned char *data_, size_t size_,
         data_++;
         size_--;
     }
+    return total;
 }
 

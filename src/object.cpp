@@ -157,6 +157,11 @@ void zmq::object_t::destroy_socket (socket_base_t *socket_)
     ctx->destroy_socket (socket_);
 }
 
+bool zmq::object_t::log_subs (const char *format_)
+{
+    return ctx->log_subs (format_);
+}
+
 void zmq::object_t::log (const char *format_, ...)
 {
     va_list args;

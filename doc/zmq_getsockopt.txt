@@ -401,6 +401,25 @@ Default value:: N/A
 Applicable socket types:: all
 
 
+ZMQ_SUBSCRIBE: Retrieve number of listeners
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The 'ZMQ_SUBSCRIBE' option shall return the number of sockets with
+subscriptions matching the given message filter.  Since sockets may
+register multiple messages filters, the number of matching sockets
+returned may exceed the number actually connected.
+
+The message filter to test and its length are provided as input in teh
+'option_value' and 'option_len' arguments.  The number of listening
+sockets is returned in the modified 'option_len' parameter value.
+
+[horizontal]
+Option value type:: binary data
+Option value unit:: N/A
+Default value:: N/A
+Applicable socket types:: ZMQ_PUB
+
+
 RETURN VALUE
 ------------
 The _zmq_getsockopt()_ function shall return zero if successful. Otherwise it

@@ -40,25 +40,32 @@ namespace zmq
         xpub_t (class ctx_t *parent_, uint32_t tid_);
         ~xpub_t ();
 
+    protected:
+
         //  Implementations of virtual functions from socket_base_t.
         void xattach_pipe (class pipe_t *pipe_, const blob_t &peer_identity_);
         int xsend (class msg_t *msg_, int flags_);
         bool xhas_out ();
+        bool xhas_subs (const void *data_, size_t size_);
         int xrecv (class msg_t *msg_, int flags_);
         bool xhas_in ();
         void xread_activated (class pipe_t *pipe_);
         void xwrite_activated (class pipe_t *pipe_);
         void xterminated (class pipe_t *pipe_);
+        int xgetsockopt (int option_, void *optval_, size_t *optvallen_);
 
     private:
 
         //  Function to be applied to the trie to send all the subsciptions
         //  upstream.
-        static void send_unsubscription (unsigned char *data_, size_t size_,
+        static void send_unsubscription (const unsigned char *data_, size_t size_,
             void *arg_);
 
         //  Function to be applied to each matching pipes.
         static void mark_as_matching (class pipe_t *pipe_, void *arg_);
+
+        //  Functions for determining how many pipes match
+        static void num_matching(class pipe_t *, void *arg_);
 
         //  List of all subscriptions mapped to corresponding pipes.
         mtrie_t subscriptions;

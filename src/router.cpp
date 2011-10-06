@@ -21,6 +21,7 @@
 #include "router.hpp"
 #include "pipe.hpp"
 #include "err.hpp"
+#include "ctx.hpp"
 
 zmq::router_t::router_t (class ctx_t *parent_, uint32_t tid_) :
     socket_base_t (parent_, tid_),
@@ -150,7 +151,6 @@ int zmq::router_t::xsend (msg_t *msg_, int flags_)
                 errno_assert (rc == 0);
             }
         }
-
         int rc = msg_->close ();
         errno_assert (rc == 0);
         rc = msg_->init ();

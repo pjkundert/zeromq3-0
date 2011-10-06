@@ -19,7 +19,7 @@
 */
 
 #include <string.h>
-
+#include <string>
 #include "xpub.hpp"
 #include "pipe.hpp"
 #include "err.hpp"
@@ -64,10 +64,10 @@ void zmq::xpub_t::xread_activated (pipe_t *pipe_)
         size_t size = sub.size ();
         zmq_assert (size > 0 && (*data == 0 || *data == 1));
         bool unique;
-		if (*data == 0)
-		    unique = subscriptions.rm (data + 1, size - 1, pipe_);
-		else
-		    unique = subscriptions.add (data + 1, size - 1, pipe_);
+        if (*data == 0)
+            unique = subscriptions.rm (data + 1, size - 1, pipe_);
+        else
+            unique = subscriptions.add (data + 1, size - 1, pipe_);
 
         //  If the subscription is not a duplicate store it so that it can be
         //  passed to used on next recv call.
@@ -152,20 +152,63 @@ bool zmq::xpub_t::xhas_in ()
     return !pending.empty ();
 }
 
-void zmq::xpub_t::send_unsubscription (unsigned char *data_, size_t size_,
+void zmq::xpub_t::send_unsubscription (const unsigned char *data_, size_t size_,
     void *arg_)
 {
     xpub_t *self = (xpub_t*) arg_;
 
     if (self->options.type != ZMQ_PUB) {
 
-		//  Place the unsubscription to the queue of pending (un)sunscriptions
-		//  to be retrived by the user later on.
-		xpub_t *self = (xpub_t*) arg_;
-		blob_t unsub (size_ + 1, 0);
-		unsub [0] = 0;
-		memcpy (&unsub [1], data_, size_);
-		self->pending.push_back (unsub);
+        //  Place the unsubscription to the queue of pending (un)sunscriptions
+        //  to be retrived by the user later on.
+        xpub_t *self = (xpub_t*) arg_;
+        blob_t unsub (size_ + 1, 0);
+        unsub [0] = 0;
+        memcpy (&unsub [1], data_, size_);
+        self->pending.push_back (unsub);
     }
+}
+
+int zmq::xpub_t::xgetsockopt (int option_, void *optval_,
+    size_t *optvallen_)
+{
+    int rc = -1;
+    switch (option_) {
+    case ZMQ_SUBSCRIBE:
+        //  Return the count of subscribed pipes for the subscription term.  We
+        //  use the size_t *optvallen_ to return the number of pipe's matching
+        //  the given input subscription term.
+        {
+            size_t matches = 0;
+            subscriptions.match ((const unsigned char *)optval_, *optvallen_,
+                                 num_matching, (void *)&matches);
+            *optvallen_ = matches;
+        }
+        rc = 0;
+        break;
+    default:
+        rc = zmq::socket_base_t::xgetsockopt (option_, optval_, optvallen_);
+        break;
+    }
+    return rc;
+}
+
+//  Detects how many pipe's matched the given data, and returns total if and
+//  only if there are both matching subscribers, and normal xhas_out()
+//  capability (defaults true, but may be overridden in derived classes.)
+bool zmq::xpub_t::xhas_subs (const void *data_, size_t size_)
+{
+    size_t total = 0;
+    if (xhas_out ()) {
+        // Count matching nodes, stopping at a max of 1!
+        subscriptions.match ((unsigned char *)data_, size_,
+                             num_matching, (void *)&total, 1);
+    }
+    return (bool)total;
+}
+
+void zmq::xpub_t::num_matching (class pipe_t *, void *arg_)
+{
+    ++*(size_t *)arg_;
 }
 

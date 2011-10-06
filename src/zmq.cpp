@@ -208,6 +208,15 @@ int zmq_connect (void *s_, const char *addr_)
     return (((zmq::socket_base_t*) s_)->connect (addr_));
 }
 
+int zmq_subs (void *s_, const void *buf_, size_t len_)
+{
+    if (!s_ || !((zmq::socket_base_t*) s_)->check_tag ()) {
+        errno = ENOTSOCK;
+        return -1;
+    }
+    return int(((zmq::socket_base_t*) s_)->has_subs (buf_, len_));
+}
+
 int zmq_send (void *s_, const void *buf_, size_t len_, int flags_)
 {
     zmq_msg_t msg;
@@ -281,6 +290,28 @@ int zmq_recvmsg (void *s_, zmq_msg_t *msg_, int flags_)
     return (int) zmq_msg_size (msg_);
 }
 
+int zmq_log_subs (void *ctx_, const char *format_)
+{
+    if (!ctx_ || !((zmq::ctx_t*) ctx_)->check_tag ()) {
+        errno = EFAULT;
+        return -1;
+    }
+    return int(((zmq::ctx_t*) ctx_)->log_subs (format_));
+}
+
+int zmq_log (void *ctx_, const char *format_, ...)
+{
+    va_list args;
+    if (!ctx_ || !((zmq::ctx_t*) ctx_)->check_tag ()) {
+        errno = EFAULT;
+        return -1;
+    }
+    va_start (args, format_);
+    ((zmq::ctx_t*) ctx_)->log (format_, args);
+    va_end (args);
+    return 0;
+}
+
 int zmq_msg_init (zmq_msg_t *msg_)
 {
     return ((zmq::msg_t*) msg_)->init ();
@@ -333,7 +364,7 @@ size_t zmq_msg_size (zmq_msg_t *msg_)
     defined ZMQ_HAVE_NETBSD
 #define ZMQ_POLL_BASED_ON_POLL
 #elif defined ZMQ_HAVE_WINDOWS || defined ZMQ_HAVE_OPENVMS ||\
-	defined ZMQ_HAVE_CYGWIN
+    defined ZMQ_HAVE_CYGWIN
 #define ZMQ_POLL_BASED_ON_SELECT
 #endif
 
@@ -352,7 +383,7 @@ int zmq_poll (zmq_pollitem_t *items_, int nitems_, long timeout_)
         return 0;
 #else
         usleep (timeout_);
-	return 0;
+        return 0;
 #endif
     }
 

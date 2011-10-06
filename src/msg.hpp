@@ -21,6 +21,7 @@
 #ifndef __ZMQ_MSG_HPP_INCLUDE__
 #define __ZMQ_MSG_HPP_INCLUDE__
 
+#include <string>
 #include <stddef.h>
 
 #include "config.hpp"
@@ -44,7 +45,7 @@ namespace zmq
     {
     public:
 
-        //  Mesage flags.
+        //  Message flags.
         enum
         {
             label = 1,
@@ -138,6 +139,31 @@ namespace zmq
         } u;
     };
 
+    //  zmq::esc_data -- escapes non-printable characters in a binary buffer,
+    //  and returns it as a std::string.  Useful for logging.
+    inline
+    std::string esc_data(
+        const void             *data_,
+        size_t                  size_,
+        char                    esc_ = '\\' )
+    {
+        const char             *hex = "0123456789abcdef";
+        std::string             res;
+
+        for ( const unsigned char *di = (const unsigned char *)data_
+                  ; di < (const unsigned char *)data_ + size_
+                  ; ++di ) {
+            if ( *di <= 31 || *di >= 127 ) { 
+                res += esc_;
+                res += 'x';
+                res += hex[*di>>4 & 0x0f];
+                res += hex[*di    & 0x0f];
+            } else {
+                res += *di;
+            }
+        }
+        return res;
+    }
 }
 
 #endif
