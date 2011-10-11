@@ -33,13 +33,36 @@
 #include "mtrie.hpp"
 
 zmq::mtrie_t::mtrie_t () :
+    refs (1),
     min (0),
     count (0)
 {
 }
 
+zmq::mtrie_t::mtrie_t (const mtrie_t &rhs) :
+    refs (1),
+    pipes (rhs.pipes),
+    min (rhs.min),
+    count (rhs.count)
+{
+    //  Performs a shallow copy, just incrementing the reference count on all
+    //  the sub-mtrie_t's
+    if ( count == 1 ) {
+        next.node = rhs.next.node;
+        next.node->refs++;
+    } else if ( count > 1 ) {
+        next.table = (mtrie_t**)malloc (count * sizeof *next.table);
+        for (unsigned short i = 0; i < count; i++) {
+            next.table[i] = rhs.next.table[i];
+            if (next.table[i])
+                next.table[i]->refs++;
+        }
+    }
+}
+
 zmq::mtrie_t::~mtrie_t ()
 {
+    zmq_assert (refs == 0);
     if (count == 1)
         delete next.node;
     else if (count > 1) {
@@ -56,6 +79,16 @@ bool zmq::mtrie_t::add (const unsigned char *prefix_, size_t size_,
     return add_helper (prefix_, size_, pipe_);
 }
 
+size_t zmq::mtrie_t::recognize (const unsigned char *prefix_, size_t size_,
+    value_t *pat_, count_t *patsiz_)
+{
+    zmq_assert (size_ > 0);
+    //  Recognize single-char literal; skips 1 char of prefix_
+    *patsiz_ = 1;
+    *pat_ = *prefix_;
+    return 1;
+}
+
 bool zmq::mtrie_t::add_helper (const unsigned char *prefix_, size_t size_,
     pipe_t *pipe_)
 {
@@ -66,50 +99,46 @@ bool zmq::mtrie_t::add_helper (const unsigned char *prefix_, size_t size_,
         return result;
     }
 
-    unsigned char c = *prefix_;
-    if (c < min || c >= min + count) {
+    //  Obtain the pattern of characters specified (sorted from low to high
+    //  value) consuming the next 'skip' chars.
+    unsigned char pat[1<<8];
+    count_t patsiz;
+    size_t preskip = recognize(prefix_, size_, pat, &patsiz);
+    zmq_assert (preskip == 1);  // for now...
 
-        //  The character is out of range of currently handled
-        //  charcters. We have to extend the table.
+    unsigned char c = *pat;     // use pat[0], pat[patsiz-1] for char range...
+    if (c < min || c >= min + count) {
+        //  The character is out of range of currently handled charcters.
         if (!count) {
+            //  We have just a single node.
             min = c;
             count = 1;
             next.node = NULL;
-        }
-        else if (count == 1) {
-            unsigned char oldc = min;
-            mtrie_t *oldp = next.node;
-            count = (min < c ? c - min : min - c) + 1;
-            next.table = (mtrie_t**)
-                calloc (count, sizeof (mtrie_t*));
-            zmq_assert (next.table);
-            min = std::min (min, c);
-            next.table [oldc - min] = oldp;
-        }
-        else if (min < c) {
-
-            //  The new character is above the current character range.
-            unsigned short old_count = count;
-            count = c - min + 1;
-            next.table = (mtrie_t**) realloc ((void*) next.table,
-                sizeof (mtrie_t*) * count);
-            zmq_assert (next.table);
-            for (unsigned short i = old_count; i != count; i++)
-                next.table [i] = NULL;
-        }
-        else {
-
-            //  The new character is below the current character range.
-            unsigned short old_count = count;
-              count = (min + old_count) - c;
-            next.table = (mtrie_t**) realloc ((void*) next.table,
-                sizeof (mtrie_t*) * count);
-            zmq_assert (next.table);
-            memmove (next.table + min - c, next.table,
-                old_count * sizeof (mtrie_t*));
-            for (unsigned short i = 0; i != min - c; i++)
-                next.table [i] = NULL;
+        } else {
+            //  We have to extend the table.  Compute the new character range
+            //  (lo,hi]; note that, worst case, we need to extend 1 value beyond
+            //  the capacity of value_t, so we must use count_t.  Create a new
+            //  (empty) table, copy old contents into place, and free old (if it
+            //  was allocated).
+            mtrie_t **oldtable;
+            if (count > 0) {
+                if (count > 1)
+                    oldtable = next.table;
+                else
+                    oldtable = &next.node;
+            } else
+                oldtable = 0;
+            count_t hi = std::max (min + count, c + count_t(1));
+            count_t lo = std::min (min, c);
+            mtrie_t **newtable = (mtrie_t **)calloc (hi - lo, sizeof *newtable);
+            zmq_assert (newtable);
+            if (count > 0) {
+                memmove (newtable + (c - lo), oldtable, count * sizeof *newtable);
+                if (count > 1)
+                    free ((void*)oldtable);
+            }
             min = c;
+            count = hi - lo;
         }
     }
 
