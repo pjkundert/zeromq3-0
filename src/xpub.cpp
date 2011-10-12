@@ -195,7 +195,14 @@ int zmq::xpub_t::xgetsockopt (int option_, void *optval_,
 
 //  Detects how many pipe's matched the given data, and returns total if and
 //  only if there are both matching subscribers, and normal xhas_out()
-//  capability (defaults true, but may be overridden in derived classes.)
+//  capability (defaults true, but may be overridden in derived classes.)  We
+//  know that xhas_out is very quick, so we'll try it first -- if no sockets are
+//  connected, or all are at their HWM and are dropping messages, there is no
+//  need to check subscription matches.  If 1 (or more) are ready to receive
+//  messages, then we'll check if there are any matches.  Of course, there is no
+//  guaranteed that the set of sockets with matching subscriptions intersects
+//  the set of sockets ready to receive messages, so the message might still be
+//  dropped.
 bool zmq::xpub_t::xhas_subs (const void *data_, size_t size_)
 {
     size_t total = 0;

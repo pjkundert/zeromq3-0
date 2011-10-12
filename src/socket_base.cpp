@@ -855,7 +855,7 @@ bool zmq::socket_base_t::xhas_out ()
 
 bool zmq::socket_base_t::xhas_subs (const void *, size_t)
 {
-    return (int)xhas_out ();
+    return xhas_out ();
 }
 
 int zmq::socket_base_t::xsend (msg_t *msg_, int flags_)

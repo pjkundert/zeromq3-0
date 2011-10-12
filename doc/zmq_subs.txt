@@ -24,7 +24,7 @@ and ZMQ_XSUB sockets.  If no sockets have subscribed using a
 corresponding message filter, then zero is returned.
 
 For all sockets, if the message would be dropped due to no sockets
-being able to accept the message, a zero is also returened.
+being able to accept the message, a zero is also returned.
 
 A 1 is returned if both the subscriber message filter matches, and
 sockets are ready to receive a message.

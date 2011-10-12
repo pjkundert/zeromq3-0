@@ -151,6 +151,7 @@ int zmq::router_t::xsend (msg_t *msg_, int flags_)
                 errno_assert (rc == 0);
             }
         }
+
         int rc = msg_->close ();
         errno_assert (rc == 0);
         rc = msg_->init ();

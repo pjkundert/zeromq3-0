@@ -323,24 +323,33 @@ void zmq::ctx_t::log (const void *data_, size_t size_)
 
 void zmq::ctx_t::log (const char *format_, va_list args_)
 {
-    // Create the log message, assuming a vsnprintf-style format, and 
-    // an arbitrary 1024-byte log message limit.
+    //  Create the formatted log message, assuming a vsnprintf-style format, and
+    //  an arbitrary 1024-byte message limit.  If exceeded, we'll dynamically
+    //  allocate 'out'.  vsnprintf returns the number of chars *not* including
+    //  the trailing NUL; we always transmit a message including a trailing NUL.
     char buf[1024];
-    int siz = vsnprintf(buf, sizeof buf, format_, args_);
-    if (siz < 0) {
-        // Formatting error; copy format, guaranteeing NUL termination.
-        strncpy(buf, format_, sizeof buf);
-        buf[(sizeof buf) - 1] = 0;
-        siz = strlen(buf);
-    } else if (siz > (int)(sizeof buf)) {
-        // Didn't fit within size of target buffer, including NUL; add ...
-        buf[(sizeof buf) - 4] = '.';
-        buf[(sizeof buf) - 3] = '.';
-        buf[(sizeof buf) - 2] = '.';
-        buf[(sizeof buf) - 1] = 0;
-        siz = sizeof buf;
+    char *out = buf;
+    int siz = vsnprintf (buf, sizeof buf, format_, args_);
+    if (siz >= (int)sizeof buf) {
+	//  Couldn't contain entire output, including NUL; allocate dynamically
+	//  and ensure that entire message plus NUL was transferred.  If
+	//  vsnprintf doesn't reliably return the correct formatted buffer
+	//  length on multiple invocations, then it is not implemented
+	//  correctly, and we'll need to implode.
+	out = (char *)malloc (siz + 1);
+	alloc_assert (out);
+	int dynsiz = vsnprintf (out, siz + 1, format_, args_);
+	zmq_assert (dynsiz == siz);
     }
-    this->log ((void*)buf, (size_t)siz);
+
+    //  If there is a formatting error; just log the raw format.  Clean up
+    //  if we've allocated a dynamic buffer.
+    if (siz < 0)
+	this->log ((const void*)format_, (size_t)strlen (format_) + 1);
+    else
+	this->log ((const void*)out, (size_t)siz + 1);
+    if (out != buf)
+	free (out);
 }
 
 bool zmq::ctx_t::log_subs (const char *format_)

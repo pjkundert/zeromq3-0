@@ -20,9 +20,9 @@ If no sockets have subscribed using a
 corresponding message filter, then zero is returned.
 
 If the message would be dropped due to no sockets
-being able to accept the message, a zero is also returened.
+being able to accept the message, a zero is also returned.
 
-A 1 is returned if both the format matches some subscriber message
+A 1 is returned if both the format matches some subscriber's message
 filter, and sockets are ready to receive a message.
 
 
