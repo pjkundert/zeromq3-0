@@ -87,8 +87,8 @@ This package contains ZeroMQ related development libraries and header files.
 %doc AUTHORS ChangeLog COPYING COPYING.LESSER NEWS README
 
 # libraries
-%{_libdir}/libzmq.so.1
-%{_libdir}/libzmq.so.1.0.0
+%{_libdir}/libzmq.so.2
+%{_libdir}/libzmq.so.2.0.0
 
 %{_mandir}/man7/zmq.7.gz
 

@@ -7,6 +7,8 @@ Bug fixes
 Changes
 -------
 
+* HWMs are set to 1,000 by default (previously, were unlimited).
+
 * Re-added OpenPGM rate limiting.
 
 * New upstream OpenPGM maintenance release 5.1.118.
