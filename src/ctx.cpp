@@ -331,11 +331,12 @@ void zmq::ctx_t::log (const char *format_, va_list args_)
     char *out = buf;
     int siz = vsnprintf (buf, sizeof buf, format_, args_);
     if (siz >= (int)sizeof buf) {
-	//  Couldn't contain entire output, including NUL; allocate dynamically
-	//  and ensure that entire message plus NUL was transferred.  If
-	//  vsnprintf doesn't reliably return the correct formatted buffer
-	//  length on multiple invocations, then it is not implemented
-	//  correctly, and we'll need to implode.
+	//  Successful formatted result of 'siz' bytes (not including the NUL),
+	//  but couldn't contain entire output (including NUL!) in the automatic
+	//  buffer; allocate one dynamically and ensure that entire message plus
+	//  NUL was transferred.  If vsnprintf doesn't reliably return the
+	//  correct formatted buffer length on multiple invocations, then it's
+	//  not implemented correctly, and we'll need to implode.
 	out = (char *)malloc (siz + 1);
 	alloc_assert (out);
 	int dynsiz = vsnprintf (out, siz + 1, format_, args_);
