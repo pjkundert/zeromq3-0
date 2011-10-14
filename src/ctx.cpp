@@ -327,8 +327,12 @@ void zmq::ctx_t::log (const char *format_, va_list args_)
     //  an arbitrary 1024-byte message limit.  If exceeded, we'll dynamically
     //  allocate 'out'.  vsnprintf returns the number of chars *not* including
     //  the trailing NUL; we always transmit a message including a trailing NUL.
+    //  Since we may need to process the variadic args list twice, we'll take a
+    //  copy (which we may not use)
     char buf[1024];
     char *out = buf;
+    va_list args_copy;
+    va_copy (args_copy, args_);
     int siz = vsnprintf (buf, sizeof buf, format_, args_);
     if (siz >= (int)sizeof buf) {
 	//  Successful formatted result of 'siz' bytes (not including the NUL),
@@ -339,9 +343,10 @@ void zmq::ctx_t::log (const char *format_, va_list args_)
 	//  not implemented correctly, and we'll need to implode.
 	out = (char *)malloc (siz + 1);
 	alloc_assert (out);
-	int dynsiz = vsnprintf (out, siz + 1, format_, args_);
+	int dynsiz = vsnprintf (out, siz + 1, format_, args_copy);
 	zmq_assert (dynsiz == siz);
     }
+    va_end (args_copy);
 
     //  If there is a formatting error; just log the raw format.  Clean up
     //  if we've allocated a dynamic buffer.
